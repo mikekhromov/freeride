@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+
+  hiddify:
+    image: hiddify/hiddify-manager:latest
+    container_name: hiddify
+    restart: always
+    network_mode: host
+    volumes:
+      - ./hiddify:/opt/hiddify-manager
+
+  mtproxy:
+    image: telegrammessenger/proxy:latest
+    container_name: mtproxy
+    restart: always
+    ports:
+      - "8443:443"
+    volumes:
+      - ./mtproxy/data:/data
+      - ./mtproxy/logs:/var/log/mtproxy
+
+  vpn-bot:
+    build: ./vpn-bot
+    container_name: vpn-bot
+    restart: always
+    volumes:
+      - ./vpn-bot/data:/app/data
+      - ./mtproxy/logs:/mtproxy/logs:ro
+      - ./mtproxy/data:/mtproxy/data
+    env_file:
+      - .env.local
+    depends_on:
+      - hiddify
+      - mtproxy

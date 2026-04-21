@@ -1,0 +1,21 @@
+# Secrets — never commit
+.env
+.env.local
+*.env
+
+# Service data
+hiddify/
+mtproxy/data/
+mtproxy/logs/
+vpn-bot/data/
+
+# Database
+*.db
+*.sqlite
+
+# Go binary
+vpn-bot/vpn-bot
+
+# OS
+.DS_Store
+*.log
