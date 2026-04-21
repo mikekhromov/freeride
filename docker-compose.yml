@@ -1,9 +1,7 @@
-version: "3.8"
-
 services:
 
   hiddify:
-    image: hiddify/hiddify-manager:latest
+    image: ghcr.io/hiddify/hiddify-manager:latest
     container_name: hiddify
     restart: always
     network_mode: host
@@ -11,7 +9,7 @@ services:
       - ./hiddify:/opt/hiddify-manager
 
   mtproxy:
-    image: telegrammessenger/proxy:latest
+    image: ghcr.io/alexbers/mtprotoproxy:latest
     container_name: mtproxy
     restart: always
     ports:
