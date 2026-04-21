@@ -10,11 +10,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      - REDIS_STRONG_PASS=${REDIS_PASSWORD}
-      - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
-      - MYSQL_DB=hiddify
-      - MYSQL_HOST=hiddify-db
+    env_file:
+      - .env
     volumes:
       - ./hiddify:/opt/hiddify-manager
     depends_on:
@@ -27,7 +24,9 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
-      MYSQL_DATABASE: hiddify
+      MYSQL_DATABASE: hiddifypanel
+      MYSQL_USER: hiddifypanel
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - ./hiddify/mariadb:/var/lib/mysql
 
