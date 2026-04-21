@@ -1,5 +1,38 @@
 services:
 
+  hiddify:
+    image: ghcr.io/hiddify/hiddify-manager:latest
+    container_name: hiddify
+    restart: always
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./hiddify:/opt/hiddify-manager
+    depends_on:
+      - mariadb
+      - redis
+
+  mariadb:
+    image: mariadb:latest
+    container_name: hiddify-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MYSQL_DATABASE: hiddify
+    volumes:
+      - ./hiddify/mariadb:/var/lib/mysql
+
+  redis:
+    image: redis:latest
+    container_name: hiddify-redis
+    restart: always
+    volumes:
+      - ./hiddify/redis:/data
+
   mtproxy:
     image: seriyps/mtproto-proxy:latest
     container_name: mtproxy
@@ -19,6 +52,7 @@ services:
       - ./mtproxy/logs:/mtproxy/logs:ro
       - ./mtproxy/data:/mtproxy/data
     env_file:
-      - .env.local
+      - .env
     depends_on:
+      - hiddify
       - mtproxy
