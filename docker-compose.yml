@@ -1,15 +1,7 @@
 services:
 
-  hiddify:
-    image: ghcr.io/hiddify/hiddify-manager:latest
-    container_name: hiddify
-    restart: always
-    network_mode: host
-    volumes:
-      - ./hiddify:/opt/hiddify-manager
-
   mtproxy:
-    image: ghcr.io/alexbers/mtprotoproxy:latest
+    image: seriyps/mtproto-proxy:latest
     container_name: mtproxy
     restart: always
     ports:
@@ -29,5 +21,4 @@ services:
     env_file:
       - .env.local
     depends_on:
-      - hiddify
       - mtproxy
