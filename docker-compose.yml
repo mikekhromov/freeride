@@ -10,6 +10,11 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      - REDIS_URI_MAIN=redis://hiddify-redis:6379
+      - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+      - MYSQL_DB=hiddify
+      - MYSQL_HOST=hiddify-db
     volumes:
       - ./hiddify:/opt/hiddify-manager
     depends_on:
