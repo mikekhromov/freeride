@@ -14,9 +14,6 @@ import (
 	"freeride/vpn-bot/db"
 	"freeride/vpn-bot/services/approve"
 	"freeride/vpn-bot/services/hiddify"
-	"freeride/vpn-bot/services/monitor"
-	"freeride/vpn-bot/services/mtproxy"
-	"freeride/vpn-bot/services/reissue"
 	"freeride/vpn-bot/services/revoke"
 	"freeride/vpn-bot/store"
 
@@ -42,12 +39,10 @@ func main() {
 	defer sqlDB.Close()
 
 	st := &store.Store{DB: sqlDB}
-	h := hiddify.New(cfg.HiddifyURL, cfg.HiddifyKey)
-	mt := &mtproxy.Manager{ConfigPath: cfg.MtproxyData}
+	h := hiddify.New(cfg.HiddifyDomain, cfg.HiddifyAdminPath, cfg.HiddifyClientPath, cfg.HiddifyKey)
 
-	approveSvc := &approve.Service{Store: st, Hiddify: h, MT: mt, Cfg: cfg}
-	reissueSvc := &reissue.Service{Store: st, Hiddify: h, MT: mt, Cfg: cfg}
-	revokeSvc := &revoke.Service{DB: sqlDB, Hiddify: h, MTProxy: mt}
+	approveSvc := &approve.Service{Store: st, Hiddify: h, Cfg: cfg}
+	revokeSvc := &revoke.Service{DB: sqlDB, Hiddify: h}
 
 	bot, err := tb.NewBot(tb.Settings{
 		Token:  cfg.BotToken,
@@ -66,14 +61,14 @@ func main() {
 	deps := handlers.Deps{
 		Cfg:     cfg,
 		Store:   st,
+		Hiddify: h,
 		Approve: approveSvc,
-		Reissue: reissueSvc,
 		Revoke:  revokeSvc,
 		Bot:     bot,
 	}
 	handlers.RegisterAll(bot, deps)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
 		ch := make(chan os.Signal, 1)
@@ -82,9 +77,6 @@ func main() {
 		cancel()
 		bot.Stop()
 	}()
-
-	runner := &monitor.Runner{Bot: bot, Cfg: cfg, Store: st, Revoke: revokeSvc}
-	runner.Start(ctx)
 
 	log.Println("vpn-bot listening…")
 	bot.Start()

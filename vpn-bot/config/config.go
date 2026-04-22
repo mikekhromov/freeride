@@ -4,22 +4,18 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type Config struct {
-	BotToken          string
-	AdminIDs          map[int64]struct{}
-	DBPath            string
-	HiddifyURL        string
-	HiddifyKey        string
-	MtproxyData       string
-	MtproxyLog        string
-	MtproxyPublicHost string
-	MtproxyPublicPort int
-	MonitorInterval   time.Duration
-	WarningTTL        time.Duration
-	DeviceLimit       int
+	BotToken         string
+	AdminIDs         map[int64]struct{}
+	DBPath           string
+	HiddifyDomain    string
+	HiddifyAdminPath string
+	HiddifyClientPath string
+	HiddifyKey       string
+	UserPackageDays  int
+	UserUsageLimitGB int
 }
 
 func Load() Config {
@@ -28,43 +24,28 @@ func Load() Config {
 	if dbPath == "" {
 		dbPath = "./data/database.db"
 	}
-	port := 8443
-	if p := strings.TrimSpace(os.Getenv("MTPROXY_PUBLIC_PORT")); p != "" {
-		if v, err := strconv.Atoi(p); err == nil {
-			port = v
-		}
-	}
-	mon := 10 * time.Minute
-	if s := strings.TrimSpace(os.Getenv("MONITOR_INTERVAL")); s != "" {
-		if d, err := time.ParseDuration(s); err == nil && d > 0 {
-			mon = d
-		}
-	}
-	warn := 24 * time.Hour
-	if s := strings.TrimSpace(os.Getenv("WARNING_TTL")); s != "" {
-		if d, err := time.ParseDuration(s); err == nil && d > 0 {
-			warn = d
-		}
-	}
-	dev := 5
-	if s := strings.TrimSpace(os.Getenv("DEVICE_LIMIT")); s != "" {
+	packageDays := 90
+	if s := strings.TrimSpace(os.Getenv("USER_PACKAGE_DAYS")); s != "" {
 		if v, err := strconv.Atoi(s); err == nil && v > 0 {
-			dev = v
+			packageDays = v
+		}
+	}
+	usageLimitGB := 1000
+	if s := strings.TrimSpace(os.Getenv("USER_USAGE_LIMIT_GB")); s != "" {
+		if v, err := strconv.Atoi(s); err == nil && v > 0 {
+			usageLimitGB = v
 		}
 	}
 	return Config{
 		BotToken:          token,
 		AdminIDs:          parseAdminIDs(os.Getenv("ADMIN_IDS")),
 		DBPath:            dbPath,
-		HiddifyURL:        strings.TrimSpace(os.Getenv("HIDDIFY_URL")),
+		HiddifyDomain:     strings.TrimSpace(os.Getenv("HIDDIFY_DOMAIN")),
+		HiddifyAdminPath:  strings.TrimSpace(os.Getenv("HIDDIFY_ADMIN_PATH")),
+		HiddifyClientPath: strings.TrimSpace(os.Getenv("HIDDIFY_CLIENT_PATH")),
 		HiddifyKey:        strings.TrimSpace(os.Getenv("HIDDIFY_API_KEY")),
-		MtproxyData:       strings.TrimSpace(os.Getenv("MTPROXY_CONFIG")),
-		MtproxyLog:        strings.TrimSpace(os.Getenv("MTPROXY_LOG")),
-		MtproxyPublicHost: strings.TrimSpace(os.Getenv("MTPROXY_PUBLIC_HOST")),
-		MtproxyPublicPort: port,
-		MonitorInterval:   mon,
-		WarningTTL:        warn,
-		DeviceLimit:       dev,
+		UserPackageDays:   packageDays,
+		UserUsageLimitGB:  usageLimitGB,
 	}
 }
 

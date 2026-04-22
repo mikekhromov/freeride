@@ -26,8 +26,6 @@ func registerCallbacks(bot *tb.Bot, d Deps) {
 			return handleApprove(ctx, c, d, strings.TrimPrefix(data, "a:"))
 		case strings.HasPrefix(data, "x:"):
 			return handleReject(ctx, c, d, strings.TrimPrefix(data, "x:"))
-		case strings.HasPrefix(data, "W:"):
-			return handleWarningAction(ctx, c, d, data)
 		default:
 			_ = c.Respond()
 			return nil
@@ -48,7 +46,7 @@ func handleRequestAccess(ctx context.Context, c tb.Context, d Deps) error {
 			return c.Send("Доступ заблокирован. Обратитесь к администратору.")
 		}
 		if u.Status == "active" {
-			if sec, e := d.Store.GetActiveSecretByUserID(ctx, u.ID); e == nil && sec != nil {
+			if u.HiddifyUUID != "" {
 				_ = c.Respond(&tb.CallbackResponse{Text: "У вас уже есть доступ"})
 				return c.Send("У вас уже активирован доступ. Используйте /status.")
 			}
@@ -119,7 +117,7 @@ func handleApprove(ctx context.Context, c tb.Context, d Deps, idStr string) erro
 		return nil
 	}
 
-	userText := formatApprovedUserMessage(hLink, mtLink, d.Cfg.DeviceLimit)
+	userText := formatApprovedUserMessage(hLink, mtLink)
 	_, _ = d.Bot.Send(&tb.User{ID: tgID}, userText)
 	_ = c.Respond(&tb.CallbackResponse{Text: "Одобрено"})
 
@@ -161,101 +159,17 @@ func handleReject(ctx context.Context, c tb.Context, d Deps, idStr string) error
 	_ = c.Respond(&tb.CallbackResponse{Text: "Отклонено"})
 	_, _ = d.Bot.Send(
 		&tb.User{ID: u.TelegramID},
-		"❌ Ваш запрос доступа отклонён администратором.",
+		"❌ Ваш запрос доступа отклонён администратором.\nВаш статус изменён на banned.",
 	)
-	return c.Send("Запрос пользователя отклонён.")
+	return c.Send("Запрос пользователя отклонён. Пользователь переведен в статус banned.")
 }
 
-func handleWarningAction(ctx context.Context, c tb.Context, d Deps, data string) error {
-	if c.Sender() == nil || !d.Cfg.IsAdmin(c.Sender().ID) {
-		_ = c.Respond(&tb.CallbackResponse{Text: "Нет доступа"})
-		return nil
-	}
-	parts := strings.Split(data, ":")
-	if len(parts) != 3 || parts[0] != "W" {
-		_ = c.Respond()
-		return nil
-	}
-	wid, err := strconv.ParseInt(parts[1], 10, 64)
-	if err != nil {
-		_ = c.Respond()
-		return nil
-	}
-
-	act := parts[2]
-	w, err := d.Store.GetWarningByID(ctx, wid)
-	if err != nil || w.Status != "pending" {
-		_ = c.Respond(&tb.CallbackResponse{Text: "Не найдено"})
-		return nil
-	}
-	sec, err := d.Store.GetSecretByID(ctx, w.SecretID)
-	if err != nil {
-		_ = c.Respond()
-		return nil
-	}
-
-	switch act {
-	case "I":
-		if err := d.Store.UpdateWarningStatus(ctx, wid, "ignored", "admin"); err != nil {
-			_ = c.Respond(&tb.CallbackResponse{Text: "Ошибка"})
-			return err
-		}
-		_ = c.Respond(&tb.CallbackResponse{Text: "Ок"})
-		return c.Send("Предупреждение помечено как игнорируемое.")
-
-	case "V":
-		res, err := d.Revoke.RevokeBySecretID(ctx, w.SecretID, true)
-		if err != nil {
-			_ = c.Respond(&tb.CallbackResponse{Text: err.Error()})
-			return nil
-		}
-		_ = d.Store.UpdateWarningStatus(ctx, wid, "revoked", "admin")
-		_ = c.Respond(&tb.CallbackResponse{Text: "Отозвано"})
-		if res != nil && res.SecretRevoked {
-			_, _ = d.Bot.Send(
-				&tb.User{ID: res.TelegramID},
-				"🔴 Секрет отозван администратором после предупреждения.",
-			)
-		}
-		return c.Send("Секрет отозван.")
-
-	case "R":
-		tgID, uname, h, mt, err := d.Reissue.ReissueForUserID(ctx, sec.UserID, &wid)
-		if err != nil {
-			_ = c.Respond(&tb.CallbackResponse{Text: err.Error()})
-			return nil
-		}
-		_ = c.Respond(&tb.CallbackResponse{Text: "Перевыпущено"})
-
-		txt := fmt.Sprintf(
-			"🔄 Секрет перевыпущен!\n\n"+
-				"🔐 Новый VPN (Hiddify):\n%s\n\n"+
-				"📱 Новый прокси Telegram:\n%s\n\n"+
-				"Старые ссылки больше не работают.",
-			h, mt,
-		)
-		_, _ = d.Bot.Send(&tb.User{ID: tgID}, txt)
-		uMark := uname
-		if uMark != "" {
-			uMark = "@" + uMark
-		} else {
-			uMark = strconv.FormatInt(tgID, 10)
-		}
-		return c.Send("✅ Секрет " + uMark + " перевыпущен.")
-
-	default:
-		_ = c.Respond()
-		return nil
-	}
-}
-
-func formatApprovedUserMessage(hLink, mtLink string, limit int) string {
+func formatApprovedUserMessage(hLink, mtLink string) string {
 	return fmt.Sprintf(
 		"✅ Доступ одобрен!\n\n"+
-			"🔐 VPN (Hiddify):\n%s\nЛимит: %d устройств\n\n"+
+			"🔐 VPN (Hiddify):\n%s\n\n"+
 			"📱 Прокси Telegram:\n%s\n\n"+
-			"⚠️ Ссылки только для личного использования.\n"+
-			"При превышении лимита секрет будет отозван.",
-		hLink, limit, mtLink,
+			"⚠️ Ссылки только для личного использования.",
+		hLink, mtLink,
 	)
 }

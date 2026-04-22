@@ -30,9 +30,6 @@ func RegisterRevoke(bot *tb.Bot, d Deps) {
 		if err != nil {
 			return c.Send("Ошибка: " + err.Error())
 		}
-		if !res.SecretRevoked {
-			return c.Send("У пользователя нет активного секрета (ничего не отозвано).")
-		}
 
 		uMark := res.Username
 		if uMark != "" {
@@ -40,15 +37,18 @@ func RegisterRevoke(bot *tb.Bot, d Deps) {
 		} else {
 			uMark = "id:" + strconv.FormatInt(res.TelegramID, 10)
 		}
-		msg := "Секрет отозван. Пользователь " + uMark + " переведён в статус banned."
+		msg := "Доступ отозван. Пользователь " + uMark + " переведён в статус banned."
+		if !res.Revoked {
+			msg = "Пользователь " + uMark + " переведён в статус banned (активного UUID не было)."
+		}
 		if err := c.Send(msg); err != nil {
 			return err
 		}
 
-		_, err = d.Bot.Send(
+		_, _ = d.Bot.Send(
 			&tb.User{ID: res.TelegramID},
-			"🔴 Ваш доступ отозван администратором. Старые ссылки больше не действуют.",
+			"🔴 Ваш доступ отозван.\nОбратитесь к администратору для восстановления.",
 		)
-		return err
+		return nil
 	})
 }

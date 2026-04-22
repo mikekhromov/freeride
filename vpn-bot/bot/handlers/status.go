@@ -26,13 +26,21 @@ func registerStatus(bot *tb.Bot, d Deps) {
 			return c.Send("Ошибка: " + err.Error())
 		}
 
-		sec, err := d.Store.GetActiveSecretByUserID(ctx, u.ID)
-		if err != nil || sec == nil {
+		if u.Status != "active" || u.HiddifyUUID == "" {
 			return c.Send(fmt.Sprintf("Статус: %s\nАктивного секрета нет.", u.Status))
+		}
+
+		profileURL, err := d.Hiddify.ProfileURLByUUID(ctx, u.HiddifyUUID)
+		if err != nil {
+			return c.Send("Не удалось получить VPN-ссылку. Обратитесь к администратору.")
+		}
+		mtproxyURL, err := d.Hiddify.MTProxyLinkByUUID(ctx, u.HiddifyUUID)
+		if err != nil {
+			return c.Send("Не удалось получить MTProxy-ссылку. Обратитесь к администратору.")
 		}
 		txt := fmt.Sprintf(
 			"Статус: %s\n\n🔐 VPN (Hiddify):\n%s\n\n📱 MTProxy:\n%s",
-			u.Status, sec.HiddifyLink, sec.MTProxyLink,
+			u.Status, profileURL, mtproxyURL,
 		)
 		return c.Send(txt)
 	})
