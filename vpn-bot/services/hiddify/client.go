@@ -3,6 +3,7 @@ package hiddify
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -31,7 +32,12 @@ func New(domain, adminPath, clientPath, apiKey string) *Client {
 		AdminPath:  strings.Trim(strings.TrimSpace(adminPath), "/"),
 		ClientPath: strings.Trim(strings.TrimSpace(clientPath), "/"),
 		APIKey:     strings.TrimSpace(apiKey),
-		HTTP:       &http.Client{Timeout: 20 * time.Second},
+		HTTP: &http.Client{
+			Timeout: 20 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		},
 	}
 }
 
