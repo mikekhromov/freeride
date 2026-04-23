@@ -7,15 +7,17 @@ import (
 )
 
 type Config struct {
-	BotToken         string
-	AdminIDs         map[int64]struct{}
-	DBPath           string
-	HiddifyDomain    string
-	HiddifyAdminPath string
+	BotToken          string
+	AdminIDs          map[int64]struct{}
+	DBPath            string
+	HiddifyDomain     string
+	HiddifyAdminPath  string
 	HiddifyClientPath string
-	HiddifyKey       string
-	UserPackageDays  int
-	UserUsageLimitGB int
+	HiddifyKey        string
+	UserPackageDays   int
+	UserUsageLimitGB  int
+	WebhookURL        string // e.g. https://bot.arengate.tech
+	WebhookListen     string // e.g. :8080
 }
 
 func Load() Config {
@@ -36,6 +38,10 @@ func Load() Config {
 			usageLimitGB = v
 		}
 	}
+	webhookListen := strings.TrimSpace(os.Getenv("WEBHOOK_LISTEN"))
+	if webhookListen == "" {
+		webhookListen = ":8080"
+	}
 	return Config{
 		BotToken:          token,
 		AdminIDs:          parseAdminIDs(os.Getenv("ADMIN_IDS")),
@@ -46,6 +52,8 @@ func Load() Config {
 		HiddifyKey:        strings.TrimSpace(os.Getenv("HIDDIFY_API_KEY")),
 		UserPackageDays:   packageDays,
 		UserUsageLimitGB:  usageLimitGB,
+		WebhookURL:        strings.TrimSpace(os.Getenv("WEBHOOK_URL")),
+		WebhookListen:     webhookListen,
 	}
 }
 

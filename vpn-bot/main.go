@@ -44,9 +44,23 @@ func main() {
 	approveSvc := &approve.Service{Store: st, Hiddify: h, Cfg: cfg}
 	revokeSvc := &revoke.Service{DB: sqlDB, Hiddify: h}
 
+	var poller tb.Poller
+	if cfg.WebhookURL != "" {
+		poller = &tb.Webhook{
+			Listen: cfg.WebhookListen,
+			Endpoint: &tb.WebhookEndpoint{
+				PublicURL: cfg.WebhookURL,
+			},
+		}
+		log.Printf("webhook mode: %s → %s", cfg.WebhookListen, cfg.WebhookURL)
+	} else {
+		poller = &tb.LongPoller{Timeout: 10 * time.Second}
+		log.Println("long-polling mode")
+	}
+
 	bot, err := tb.NewBot(tb.Settings{
 		Token:  cfg.BotToken,
-		Poller: &tb.LongPoller{Timeout: 10 * time.Second},
+		Poller: poller,
 		OnError: func(err error, c tb.Context) {
 			log.Println("bot:", err)
 			if c != nil {
@@ -67,10 +81,6 @@ func main() {
 		Bot:     bot,
 	}
 	handlers.RegisterAll(bot, deps)
-
-	if _, err := bot.Raw("deleteWebhook", map[string]bool{"drop_pending_updates": false}); err != nil {
-		log.Printf("warn: deleteWebhook: %v", err)
-	}
 
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
