@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -105,6 +106,7 @@ func handleApprove(ctx context.Context, c tb.Context, d Deps, idStr string) erro
 
 	tgUser, tgID, hLink, mtLink, already, err := d.Approve.ApproveUser(ctx, uid, c.Sender().ID)
 	if err != nil {
+		log.Printf("approve uid=%d: %v", uid, err)
 		_ = c.Respond(&tb.CallbackResponse{Text: "Ошибка: " + err.Error()})
 		return nil
 	}
