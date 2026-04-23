@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=vpnbot
-WorkingDirectory=/home/vpnbot
+User=root
+WorkingDirectory=/root/vpn
 EnvironmentFile=-/root/vpn/.env
 EnvironmentFile=-/root/vpn/.env.local
 ExecStart=/usr/local/bin/vpn-bot
