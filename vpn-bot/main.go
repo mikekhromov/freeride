@@ -68,6 +68,10 @@ func main() {
 	}
 	handlers.RegisterAll(bot, deps)
 
+	if _, err := bot.Raw("deleteWebhook", map[string]bool{"drop_pending_updates": false}); err != nil {
+		log.Printf("warn: deleteWebhook: %v", err)
+	}
+
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
