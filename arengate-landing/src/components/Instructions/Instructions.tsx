@@ -4,7 +4,7 @@ import styles from './Instructions.module.css'
 const steps = [
   {
     number: '01',
-    title: 'Напиши боту @arengate_bot',
+    title: 'Напиши боту @arendelle_gate_bot',
     description: 'Нажми /start для начала',
   },
   {
@@ -26,6 +26,11 @@ const steps = [
     number: '05',
     title: 'Подключись',
     description: 'Установи Happ (iOS/Android) или любой VLESS клиент',
+  },
+  {
+    number: '06',
+    title: 'Добавь конфиг в Happ Plus',
+    description: 'Открой Happ Plus, нажми "+" и вставь ссылку конфигурации от бота',
   },
 ]
 

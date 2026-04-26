@@ -1,8 +1,9 @@
 module freeride/vpn-bot
 
-go 1.22
+go 1.25.0
 
 require (
+	golang.org/x/image v0.39.0
 	gopkg.in/telebot.v3 v3.3.8
 	modernc.org/sqlite v1.34.5
 )

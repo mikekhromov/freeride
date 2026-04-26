@@ -18,6 +18,8 @@ type Config struct {
 	UserUsageLimitGB  int
 	WebhookURL        string // e.g. https://bot.arengate.tech
 	WebhookListen     string // e.g. :8080
+	UsersProxyHost    string // e.g. users.eu.example.com
+	SupportTag        string // e.g. @mikekhromov
 }
 
 func Load() Config {
@@ -54,7 +56,23 @@ func Load() Config {
 		UserUsageLimitGB:  usageLimitGB,
 		WebhookURL:        strings.TrimSpace(os.Getenv("WEBHOOK_URL")),
 		WebhookListen:     webhookListen,
+		UsersProxyHost:    normalizeUsersProxyHost(os.Getenv("USERS_PROXY_HOST")),
+		SupportTag:        strings.TrimSpace(os.Getenv("SUPPORT_TAG")),
 	}
+}
+
+func normalizeUsersProxyHost(raw string) string {
+	host := strings.TrimSpace(raw)
+	host = strings.TrimPrefix(host, "https://")
+	host = strings.TrimPrefix(host, "http://")
+	host = strings.Trim(host, "/")
+	if host == "" {
+		return ""
+	}
+	if strings.HasPrefix(strings.ToLower(host), "users.") {
+		return host
+	}
+	return "users." + host
 }
 
 func parseAdminIDs(raw string) map[int64]struct{} {

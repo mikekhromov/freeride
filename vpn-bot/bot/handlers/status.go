@@ -38,10 +38,8 @@ func registerStatus(bot *tb.Bot, d Deps) {
 		if err != nil {
 			return c.Send("Не удалось получить MTProxy-ссылку. Обратитесь к администратору.")
 		}
-		txt := fmt.Sprintf(
-			"Статус: %s\n\n🔐 VPN (Hiddify):\n%s\n\n📱 MTProxy:\n%s",
-			u.Status, profileURL, mtproxyURL,
-		)
-		return c.Send(txt)
+		links := buildVPNLinks(profileURL)
+		mtproxyURL = normalizeMTProxyURL(mtproxyURL, d.Cfg.UsersProxyHost)
+		return sendConnectionPack(d, c.Recipient(), links, mtproxyURL)
 	})
 }

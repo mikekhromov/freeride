@@ -1,52 +1,36 @@
-.PHONY: deploy update logs status restart build down fmt-go
+.PHONY: deploy deploy-bot deploy-landing fmt-go logs status restart
 
-# Форматирование Go (встроенный gofmt; импорты — см. goimports в ответе README)
+REPO_DIR := /root/vpn
+BOT_SRC  := $(REPO_DIR)/vpn-bot
+BOT_BIN  := /usr/local/bin/vpn-bot
+LAND_DIR := $(REPO_DIR)/arengate-landing
+
 fmt-go:
 	cd vpn-bot && gofmt -s -w .
 
-# First-time setup on VPS — run once after git clone
-setup:
-	cp .env.example .env.local
-	@echo "Fill in .env.local, then run: make up"
-
-# Start all services
-up:
-	mkdir -p hiddify mtproxy/data mtproxy/logs vpn-bot/data
-	docker compose up -d
-
-# Rebuild and restart bot only (after code change)
+# Deploy everything
 deploy:
 	git pull origin main
-	docker compose up -d --build vpn-bot
+	$(MAKE) deploy-bot
+	$(MAKE) deploy-landing
 
-# Full rebuild of all services
-build:
-	docker compose build
+# Deploy bot only
+deploy-bot:
+	go build -o $(BOT_BIN) ./vpn-bot/
+	systemctl restart vpn-bot
+	@echo "Bot deployed and restarted"
 
-# Stop all services
-down:
-	docker compose down
-
-# Status
-status:
-	docker compose ps
+# Deploy landing only
+deploy-landing:
+	cd $(LAND_DIR) && npm run build
+	@echo "Landing deployed"
 
 # Logs
 logs:
-	docker compose logs -f
+	journalctl -u vpn-bot -f
 
-logs-bot:
-	docker compose logs -f vpn-bot
+status:
+	systemctl status vpn-bot --no-pager -n 20
 
-logs-hiddify:
-	docker compose logs -f hiddify
-
-logs-mtproxy:
-	docker compose logs -f mtproxy
-
-# Restart individual services
-restart-bot:
-	docker compose restart vpn-bot
-
-restart-all:
-	docker compose restart
+restart:
+	systemctl restart vpn-bot

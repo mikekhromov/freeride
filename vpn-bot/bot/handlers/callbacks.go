@@ -27,6 +27,10 @@ func registerCallbacks(bot *tb.Bot, d Deps) {
 			return handleApprove(ctx, c, d, strings.TrimPrefix(data, "a:"))
 		case strings.HasPrefix(data, "x:"):
 			return handleReject(ctx, c, d, strings.TrimPrefix(data, "x:"))
+		case data == "dl_wg":
+			return sendConfigFile(ctx, c, d, "wireguard")
+		case data == "dl_xr":
+			return sendConfigFile(ctx, c, d, "xray")
 		default:
 			_ = c.Respond()
 			return nil
@@ -119,8 +123,9 @@ func handleApprove(ctx context.Context, c tb.Context, d Deps, idStr string) erro
 		return nil
 	}
 
-	userText := formatApprovedUserMessage(hLink, mtLink)
-	_, _ = d.Bot.Send(&tb.User{ID: tgID}, userText)
+	links := buildVPNLinks(hLink)
+	mtLink = normalizeMTProxyURL(mtLink, d.Cfg.UsersProxyHost)
+	_ = sendConnectionPack(d, &tb.User{ID: tgID}, links, mtLink)
 	_ = c.Respond(&tb.CallbackResponse{Text: "Одобрено"})
 
 	un := tgUser

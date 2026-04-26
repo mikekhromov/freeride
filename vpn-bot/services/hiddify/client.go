@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -190,6 +191,25 @@ func (c *Client) MTProxyLinkByUUID(ctx context.Context, userUUID string) (string
 	return links[0].Link, nil
 }
 
+func (c *Client) UsageByUUID(ctx context.Context, userUUID string) (usedGB, limitGB float64, err error) {
+	if strings.TrimSpace(userUUID) == "" {
+		return 0, 0, fmt.Errorf("hiddify: empty user uuid")
+	}
+	if !c.enabled() {
+		return 0, 0, fmt.Errorf("hiddify: config is incomplete")
+	}
+	var raw map[string]any
+	if err := c.doJSON(ctx, http.MethodGet, c.clientURL("/me/"), nil, &raw, userUUID); err != nil {
+		return 0, 0, err
+	}
+	usedGB = pickFloat(raw, "current_usage_GB", "usage_current_GB", "used_traffic_GB")
+	limitGB = pickFloat(raw, "usage_limit_GB", "package_usage_limit_GB", "traffic_limit_GB")
+	if limitGB <= 0 {
+		return usedGB, 0, nil
+	}
+	return usedGB, limitGB, nil
+}
+
 func (c *Client) AdminUsersCount(ctx context.Context) (int, error) {
 	if !c.enabled() {
 		return 0, fmt.Errorf("hiddify: config is incomplete")
@@ -228,4 +248,32 @@ func asInt(v any) (int, bool) {
 	default:
 		return 0, false
 	}
+}
+
+func pickFloat(m map[string]any, keys ...string) float64 {
+	for _, k := range keys {
+		v, ok := m[k]
+		if !ok {
+			continue
+		}
+		switch x := v.(type) {
+		case float64:
+			return x
+		case float32:
+			return float64(x)
+		case int:
+			return float64(x)
+		case int64:
+			return float64(x)
+		case string:
+			x = strings.TrimSpace(x)
+			if x == "" {
+				continue
+			}
+			if f, err := strconv.ParseFloat(x, 64); err == nil {
+				return f
+			}
+		}
+	}
+	return 0
 }

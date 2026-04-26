@@ -59,3 +59,38 @@ func (s *Service) ApproveUser(ctx context.Context, userID int64, adminTelegramID
 
 	return u.TelegramUsername, u.TelegramID, hSub, mtLink, false, nil
 }
+
+func (s *Service) ReissueForTelegramUser(ctx context.Context, telegramID int64) (tgUser string, tgID int64, hLink, mtLink string, err error) {
+	u, err := s.Store.GetUserByTelegramID(ctx, telegramID)
+	if err != nil {
+		return "", 0, "", "", err
+	}
+	if u.Status != "active" {
+		return "", 0, "", "", fmt.Errorf("перевыпуск доступен только для active")
+	}
+	if u.HiddifyUUID != "" {
+		if err := s.Hiddify.DeleteUser(ctx, u.HiddifyUUID); err != nil {
+			return "", 0, "", "", err
+		}
+	}
+	name := fmt.Sprintf("tg-%d", u.TelegramID)
+	if u.TelegramUsername != "" {
+		name = u.TelegramUsername
+	}
+	hUID, err := s.Hiddify.CreateUser(ctx, name, s.Cfg.UserPackageDays, s.Cfg.UserUsageLimitGB)
+	if err != nil {
+		return "", 0, "", "", err
+	}
+	hSub, err := s.Hiddify.ProfileURLByUUID(ctx, hUID)
+	if err != nil {
+		return "", 0, "", "", err
+	}
+	mt, err := s.Hiddify.MTProxyLinkByUUID(ctx, hUID)
+	if err != nil {
+		return "", 0, "", "", err
+	}
+	if err := s.Store.ActivateUser(ctx, u.ID, telegramID, hUID); err != nil {
+		return "", 0, "", "", err
+	}
+	return u.TelegramUsername, u.TelegramID, hSub, mt, nil
+}

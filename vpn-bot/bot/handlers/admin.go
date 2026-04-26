@@ -18,8 +18,11 @@ const (
 
 func registerAdmin(bot *tb.Bot, d Deps) {
 	bot.Handle("/stats", func(c tb.Context) error {
-		if c.Sender() == nil || !d.Cfg.IsAdmin(c.Sender().ID) {
-			return c.Send("Нет доступа.")
+		if c.Sender() == nil {
+			return nil
+		}
+		if !d.Cfg.IsAdmin(c.Sender().ID) {
+			return handleUserStats(c, d)
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeoutStats)
@@ -120,10 +123,9 @@ func registerAdmin(bot *tb.Bot, d Deps) {
 			return c.Send("У пользователя уже был активный доступ (ссылки переотправлены).")
 		}
 
-		_, _ = d.Bot.Send(
-			&tb.User{ID: tgID},
-			formatApprovedUserMessage(h, mt),
-		)
+		links := buildVPNLinks(h)
+		mt = normalizeMTProxyURL(mt, d.Cfg.UsersProxyHost)
+		_ = sendConnectionPack(d, &tb.User{ID: tgID}, links, mt)
 
 		mark := tgUser
 		if mark != "" {
@@ -132,6 +134,39 @@ func registerAdmin(bot *tb.Bot, d Deps) {
 			mark = strconv.FormatInt(tgID, 10)
 		}
 		return c.Send("✅ Одобрено: " + mark)
+	})
+
+	bot.Handle("/test", func(c tb.Context) error {
+		if c.Sender() == nil || !d.Cfg.IsAdmin(c.Sender().ID) {
+			return c.Send("Нет доступа.")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), timeoutApprove)
+		defer cancel()
+
+		u, err := d.Store.GetUserByTelegramID(ctx, c.Sender().ID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return c.Send("В БД нет записи с вашим Telegram ID. Запросите доступ через /start или одобрьте себя как пользователя — тогда /test покажет выдачу по вашим ссылкам.")
+			}
+			return c.Send("Ошибка: " + err.Error())
+		}
+		if u.Status != "active" || u.HiddifyUUID == "" {
+			return c.Send("Нужен статус active и привязанный Hiddify UUID (как у одобренного пользователя). Сейчас: статус " + u.Status + ".")
+		}
+
+		profileURL, err := d.Hiddify.ProfileURLByUUID(ctx, u.HiddifyUUID)
+		if err != nil {
+			return c.Send("Не удалось получить VPN-ссылку: " + err.Error())
+		}
+		mt, err := d.Hiddify.MTProxyLinkByUUID(ctx, u.HiddifyUUID)
+		if err != nil {
+			return c.Send("Не удалось получить MTProxy-ссылку: " + err.Error())
+		}
+
+		links := buildVPNLinks(profileURL)
+		mt = normalizeMTProxyURL(mt, d.Cfg.UsersProxyHost)
+		_ = c.Send("🧪 Тест: так пользователь увидит выдачу доступа (ваши ссылки). Кнопки скачивания отдают конфиги для вашего аккаунта в боте.")
+		return sendConnectionPack(d, c.Recipient(), links, mt)
 	})
 
 }
