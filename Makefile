@@ -16,7 +16,7 @@ deploy:
 
 # Deploy bot only
 deploy-bot:
-	go build -o $(BOT_BIN) ./vpn-bot/
+	cd $(BOT_SRC) && go build -o $(BOT_BIN) .
 	systemctl restart vpn-bot
 	@echo "Bot deployed and restarted"
 
