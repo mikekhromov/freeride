@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"html"
 	"io"
 	"net"
 	"net/http"
@@ -62,24 +63,38 @@ func normalizeMTProxyURL(rawURL, usersHost string) string {
 }
 
 func sendConnectionPack(d Deps, recipient tb.Recipient, links vpnLinks, proxyURL string) error {
+	links = normalizeVPNLinks(links, d.Cfg.UsersProxyHost)
+	proxyURL = normalizeMTProxyURL(proxyURL, d.Cfg.UsersProxyHost)
+
 	kb := &tb.ReplyMarkup{}
 	kb.InlineKeyboard = [][]tb.InlineButton{
 		{
 			{Text: "Скачать WireGuard", Data: "dl_wg"},
 			{Text: "Скачать Full Xray", Data: "dl_xr"},
 		},
+		{
+			{Text: "Скопировать для приложения", Data: "cp_all"},
+		},
 	}
 
-	vpnBody := fmt.Sprintf(
-		"Варианты подключения VPN:\n\n• WireGuard: %s\n• Full Xray: %s\n• Все конфиги: %s",
-		links.WireGuard, links.Xray, links.All,
+	vpnBody := fmt.Sprintf("Варианты подключения VPN:\n\n• <a href=\"%s\">WireGuard</a>\n\n• <a href=\"%s\">Full Xray</a>\n\n• <a href=\"%s\">Все конфиги</a>",
+		html.EscapeString(links.WireGuard),
+		html.EscapeString(links.Xray),
+		html.EscapeString(links.All),
 	)
-	proxyBody := fmt.Sprintf("Telegram Proxy:\n%s", proxyURL)
+	proxyBody := "Telegram Proxy:\n\nИспользуйте кнопки ниже."
+	proxyKB := &tb.ReplyMarkup{}
+	proxyKB.InlineKeyboard = [][]tb.InlineButton{
+		{
+			{Text: "Скопировать", Data: "cp_tg"},
+			{Text: "Открыть", URL: proxyURL},
+		},
+	}
 
-	if err := sendCardOrText(d, recipient, "VPN", vpnBody, &tb.SendOptions{ReplyMarkup: kb}); err != nil {
+	if err := sendCardOrText(d, recipient, "VPN", vpnBody, &tb.SendOptions{ReplyMarkup: kb, ParseMode: tb.ModeHTML}); err != nil {
 		return err
 	}
-	if err := sendCardOrText(d, recipient, "Telegram Proxy", proxyBody, nil); err != nil {
+	if err := sendCardOrText(d, recipient, "Telegram Proxy", proxyBody, &tb.SendOptions{ReplyMarkup: proxyKB, ParseMode: tb.ModeHTML}); err != nil {
 		return err
 	}
 	if _, err := d.Bot.Send(recipient, buildClientAppsMessage()); err != nil {
@@ -118,6 +133,30 @@ func sendCardOrText(d Deps, recipient tb.Recipient, title, body string, opts *tb
 	return err
 }
 
+func normalizeVPNLinks(links vpnLinks, usersHost string) vpnLinks {
+	return vpnLinks{
+		WireGuard: normalizeURLHost(links.WireGuard, usersHost),
+		Xray:      normalizeURLHost(links.Xray, usersHost),
+		All:       normalizeURLHost(links.All, usersHost),
+	}
+}
+
+func normalizeURLHost(rawURL, usersHost string) string {
+	if strings.TrimSpace(rawURL) == "" || strings.TrimSpace(usersHost) == "" {
+		return rawURL
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	port := u.Port()
+	u.Host = usersHost
+	if port != "" {
+		u.Host = net.JoinHostPort(usersHost, port)
+	}
+	return u.String()
+}
+
 func sendConfigFile(ctx context.Context, c tb.Context, d Deps, protocol string) error {
 	if c.Sender() == nil {
 		return c.Respond()
@@ -138,6 +177,7 @@ func sendConfigFile(ctx context.Context, c tb.Context, d Deps, protocol string) 
 		return nil
 	}
 	links := buildVPNLinks(profileURL)
+	links = normalizeVPNLinks(links, d.Cfg.UsersProxyHost)
 	src := links.WireGuard
 	if protocol == "xray" {
 		src = links.Xray
@@ -157,6 +197,41 @@ func sendConfigFile(ctx context.Context, c tb.Context, d Deps, protocol string) 
 	}
 	_ = c.Respond(&tb.CallbackResponse{Text: "Готово"})
 	return c.Send(doc)
+}
+
+func sendCopyLink(ctx context.Context, c tb.Context, d Deps, target string) error {
+	if c.Sender() == nil {
+		return c.Respond()
+	}
+	user, err := d.Store.GetUserByTelegramID(ctx, c.Sender().ID)
+	if err != nil {
+		_ = c.Respond(&tb.CallbackResponse{Text: "Пользователь не найден"})
+		return nil
+	}
+	if user.Status != "active" || user.HiddifyUUID == "" {
+		_ = c.Respond(&tb.CallbackResponse{Text: "Нет активного доступа"})
+		return nil
+	}
+	if target == "tg" {
+		mtproxyURL, err := d.Hiddify.MTProxyLinkByUUID(ctx, user.HiddifyUUID)
+		if err != nil {
+			_ = c.Respond(&tb.CallbackResponse{Text: "Ошибка ссылки"})
+			return nil
+		}
+		mtproxyURL = normalizeMTProxyURL(mtproxyURL, d.Cfg.UsersProxyHost)
+		_ = c.Respond(&tb.CallbackResponse{Text: "Ссылка отправлена"})
+		_, err = d.Bot.Send(c.Recipient(), "Скопируйте ссылку Telegram Proxy:\n"+mtproxyURL)
+		return err
+	}
+	profileURL, err := d.Hiddify.ProfileURLByUUID(ctx, user.HiddifyUUID)
+	if err != nil {
+		_ = c.Respond(&tb.CallbackResponse{Text: "Ошибка ссылки"})
+		return nil
+	}
+	links := normalizeVPNLinks(buildVPNLinks(profileURL), d.Cfg.UsersProxyHost)
+	_ = c.Respond(&tb.CallbackResponse{Text: "Ссылка отправлена"})
+	_, err = d.Bot.Send(c.Recipient(), "Скопируйте ссылку «Все конфиги»:\n"+links.All)
+	return err
 }
 
 func fetchConfig(ctx context.Context, client *http.Client, src string) ([]byte, error) {

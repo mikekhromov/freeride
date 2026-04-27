@@ -31,6 +31,10 @@ func registerCallbacks(bot *tb.Bot, d Deps) {
 			return sendConfigFile(ctx, c, d, "wireguard")
 		case data == "dl_xr":
 			return sendConfigFile(ctx, c, d, "xray")
+		case data == "cp_all":
+			return sendCopyLink(ctx, c, d, "all")
+		case data == "cp_tg":
+			return sendCopyLink(ctx, c, d, "tg")
 		default:
 			_ = c.Respond()
 			return nil
