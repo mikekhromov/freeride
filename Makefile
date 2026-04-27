@@ -1,4 +1,4 @@
-.PHONY: deploy deploy-bot deploy-landing install-hooks fmt-go logs status restart
+.PHONY: install deploy deploy-bot deploy-landing install-hooks fmt-go logs status restart
 
 REPO_DIR := /root/vpn
 BOT_SRC  := $(REPO_DIR)/vpn-bot
@@ -8,7 +8,14 @@ LAND_DIR := $(REPO_DIR)/arengate-landing
 fmt-go:
 	cd vpn-bot && gofmt -s -w .
 
-# Deploy everything
+# Full install: pull + bot + landing + hooks (first-time or after big changes)
+install:
+	git pull origin main
+	$(MAKE) deploy-bot
+	$(MAKE) deploy-landing
+	$(MAKE) install-hooks
+
+# Deploy everything (no hooks reinstall)
 deploy:
 	git pull origin main
 	$(MAKE) deploy-bot
