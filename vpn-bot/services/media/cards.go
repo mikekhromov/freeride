@@ -120,8 +120,7 @@ func backgroundPathCandidates() []string {
 	out = append(out,
 		"bg.jpg",
 		filepath.Join(".", "bg.jpg"),
-		"../arengate-landing/public/bg.jpg",
-		"/Users/mikekhromov/Documents/code/freeride/arengate-landing/public/bg.jpg",
+		filepath.Join("arengate-landing", "public", "bg.jpg"),
 		filepath.Join("assets", "bg.jpg"),
 	)
 	return out
