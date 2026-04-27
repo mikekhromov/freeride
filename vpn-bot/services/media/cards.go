@@ -110,6 +110,13 @@ func backgroundPathCandidates() []string {
 	if p := os.Getenv("BOT_CARD_BG_PATH"); p != "" {
 		out = append(out, p)
 	}
+	if exePath, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exePath)
+		out = append(out, filepath.Join(exeDir, "bg.jpg"))
+	}
+	if wdPath, err := filepath.Abs("bg.jpg"); err == nil {
+		out = append(out, wdPath)
+	}
 	out = append(out,
 		"bg.jpg",
 		filepath.Join(".", "bg.jpg"),

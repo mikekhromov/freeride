@@ -50,6 +50,20 @@ func normalizeMTProxyURL(rawURL, usersHost, hiddifyDomain string) string {
 	if err != nil {
 		return rawURL
 	}
+	// Hiddify can return tg://proxy?server=<ip>&port=... where host is "proxy".
+	// For this format we must rewrite the "server" query param, not URL host.
+	if strings.EqualFold(u.Scheme, "tg") {
+		q := u.Query()
+		serverHost := q.Get("server")
+		targetHost := preferredUsersHost(serverHost, usersHost, hiddifyDomain)
+		if targetHost == "" {
+			return rawURL
+		}
+		q.Set("server", targetHost)
+		normalizeKnownQueryHosts(q, targetHost)
+		u.RawQuery = q.Encode()
+		return u.String()
+	}
 	targetHost := preferredUsersHost(u.Hostname(), usersHost, hiddifyDomain)
 	if targetHost == "" {
 		return rawURL
@@ -59,6 +73,9 @@ func normalizeMTProxyURL(rawURL, usersHost, hiddifyDomain string) string {
 	if port != "" {
 		u.Host = net.JoinHostPort(targetHost, port)
 	}
+	q := u.Query()
+	normalizeKnownQueryHosts(q, targetHost)
+	u.RawQuery = q.Encode()
 	return u.String()
 }
 
@@ -149,6 +166,9 @@ func normalizeURLHost(rawURL, usersHost, hiddifyDomain string) string {
 	if port != "" {
 		u.Host = net.JoinHostPort(targetHost, port)
 	}
+	q := u.Query()
+	normalizeKnownQueryHosts(q, targetHost)
+	u.RawQuery = q.Encode()
 	return u.String()
 }
 
@@ -178,6 +198,22 @@ func preferredUsersHost(currentHost, usersHost, hiddifyDomain string) string {
 		return currentHost
 	}
 	return trimmedDomain
+}
+
+func normalizeKnownQueryHosts(q url.Values, targetHost string) {
+	if targetHost == "" {
+		return
+	}
+	for _, key := range []string{"server", "host", "hostname", "sni", "domain"} {
+		v := strings.TrimSpace(q.Get(key))
+		if v == "" {
+			continue
+		}
+		if ip := net.ParseIP(v); ip == nil {
+			continue
+		}
+		q.Set(key, targetHost)
+	}
 }
 
 func sendConfigFile(ctx context.Context, c tb.Context, d Deps, protocol string) error {

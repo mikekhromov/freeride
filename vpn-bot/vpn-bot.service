@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=/root/vpn
+Environment=BOT_CARD_BG_PATH=/root/vpn/bg.jpg
 EnvironmentFile=-/root/vpn/.env
 EnvironmentFile=-/root/vpn/.env.local
 ExecStart=/usr/local/bin/vpn-bot
