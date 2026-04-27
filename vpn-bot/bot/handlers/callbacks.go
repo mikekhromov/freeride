@@ -97,7 +97,13 @@ func handleRequestAccess(ctx context.Context, c tb.Context, d Deps) error {
 		)
 	}
 	_ = c.Respond(&tb.CallbackResponse{Text: "Запрос отправлен"})
-	return c.Send("Запрос отправлен администратору. Ожидайте решения.")
+	who := "друг"
+	if uname != "" {
+		who = "@" + uname
+	} else if fn := strings.TrimSpace(sender.FirstName); fn != "" {
+		who = fn
+	}
+	return c.Send(who + ", запрос отправлен администратору. Ожидайте решения.")
 }
 
 func handleApprove(ctx context.Context, c tb.Context, d Deps, idStr string) error {

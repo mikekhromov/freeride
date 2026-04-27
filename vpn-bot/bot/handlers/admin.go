@@ -165,7 +165,10 @@ func registerAdmin(bot *tb.Bot, d Deps) {
 
 		links := buildVPNLinks(profileURL)
 		mt = normalizeMTProxyURL(mt, d.Cfg.UsersProxyHost, d.Cfg.HiddifyDomain)
-		_ = c.Send("🧪 Тест: так пользователь увидит выдачу доступа (ваши ссылки). Кнопки скачивания отдают конфиги для вашего аккаунта в боте.")
+		testCaption := "🧪 Тест: далее — как пользователь получает доступ (ваши ссылки). Кнопки скачивают конфиги вашего аккаунта."
+		if err := sendGeneratedCardOrText(d, c.Recipient(), greetingTitle(c), testCaption, nil); err != nil {
+			return err
+		}
 		return sendConnectionPack(d, c.Recipient(), links, mt)
 	})
 

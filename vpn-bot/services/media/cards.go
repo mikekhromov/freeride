@@ -188,18 +188,28 @@ func maxFloat(a, b float64) float64 {
 	return b
 }
 
-func LoadStaticCard(name string) ([]byte, error) {
+// ResolveStaticCardPath returns the first existing image file for a built-in card name
+// (vpn, telegram, client). Extensions tried: .png, .jpg, .jpeg.
+func ResolveStaticCardPath(name string) (string, error) {
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
-		return nil, fmt.Errorf("empty card name")
+		return "", fmt.Errorf("empty card name")
 	}
 	for _, p := range staticCardPathCandidates(trimmed) {
-		b, err := os.ReadFile(p)
-		if err == nil && len(b) > 0 {
-			return b, nil
+		st, err := os.Stat(p)
+		if err == nil && !st.IsDir() && st.Size() > 0 {
+			return p, nil
 		}
 	}
-	return nil, fmt.Errorf("static card not found: %s", trimmed)
+	return "", fmt.Errorf("static card not found: %s", trimmed)
+}
+
+func LoadStaticCard(name string) ([]byte, error) {
+	p, err := ResolveStaticCardPath(name)
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadFile(p)
 }
 
 func staticCardPathCandidates(name string) []string {

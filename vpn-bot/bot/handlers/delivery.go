@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -122,30 +123,47 @@ func sendConnectionPack(d Deps, recipient tb.Recipient, links vpnLinks, proxyURL
 }
 
 func sendGeneratedCardOrText(d Deps, recipient tb.Recipient, title, body string, opts *tb.SendOptions) error {
-	card, err := media.RenderTitleCard(title)
-	if err == nil {
-		photo := &tb.Photo{
-			File:    tb.FromReader(bytes.NewReader(card)),
-			Caption: body,
-		}
-		_, err = d.Bot.Send(recipient, photo, opts)
-		if err == nil {
-			return nil
-		}
-	}
 	fallbackText := strings.TrimSpace(body)
 	if fallbackText == "" {
 		fallbackText = title
+	}
+	card, err := media.RenderTitleCard(title)
+	if err != nil {
+		_, err = d.Bot.Send(recipient, fallbackText, opts)
+		return err
+	}
+	f, err := os.CreateTemp("", "vpnbot-title-*.png")
+	if err != nil {
+		_, err = d.Bot.Send(recipient, fallbackText, opts)
+		return err
+	}
+	tmpPath := f.Name()
+	_, werr := f.Write(card)
+	_ = f.Close()
+	if werr != nil {
+		_ = os.Remove(tmpPath)
+		_, err = d.Bot.Send(recipient, fallbackText, opts)
+		return err
+	}
+	defer os.Remove(tmpPath)
+
+	photo := &tb.Photo{
+		File:    tb.FromDisk(tmpPath),
+		Caption: body,
+	}
+	_, err = d.Bot.Send(recipient, photo, opts)
+	if err == nil {
+		return nil
 	}
 	_, err = d.Bot.Send(recipient, fallbackText, opts)
 	return err
 }
 
 func sendStaticCardOrText(d Deps, recipient tb.Recipient, cardName, fallbackTitle, body string, opts *tb.SendOptions) error {
-	card, err := media.LoadStaticCard(cardName)
+	path, err := media.ResolveStaticCardPath(cardName)
 	if err == nil {
 		photo := &tb.Photo{
-			File:    tb.FromReader(bytes.NewReader(card)),
+			File:    tb.FromDisk(path),
 			Caption: body,
 		}
 		_, err = d.Bot.Send(recipient, photo, opts)
