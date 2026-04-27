@@ -123,6 +123,9 @@ func sendConnectionPack(d Deps, recipient tb.Recipient, links vpnLinks, proxyURL
 }
 
 func sendGeneratedCardOrText(d Deps, recipient tb.Recipient, title, body string, opts *tb.SendOptions) error {
+	if opts == nil {
+		opts = &tb.SendOptions{}
+	}
 	fallbackText := strings.TrimSpace(body)
 	if fallbackText == "" {
 		fallbackText = title
@@ -160,6 +163,9 @@ func sendGeneratedCardOrText(d Deps, recipient tb.Recipient, title, body string,
 }
 
 func sendStaticCardOrText(d Deps, recipient tb.Recipient, cardName, fallbackTitle, body string, opts *tb.SendOptions) error {
+	if opts == nil {
+		opts = &tb.SendOptions{}
+	}
 	path, err := media.ResolveStaticCardPath(cardName)
 	if err == nil {
 		photo := &tb.Photo{
