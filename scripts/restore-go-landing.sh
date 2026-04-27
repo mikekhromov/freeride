@@ -13,8 +13,7 @@ if ! grep -q "^go.arengate.tech" "$MAP"; then
     echo "go.arengate.tech go_landing" >> "$MAP"
 fi
 
-if systemctl is-active --quiet haproxy; then
-    systemctl reload haproxy
-else
-    systemctl restart haproxy
+HIDDIFY_PID=$(pgrep -f "haproxy.*opt/hiddify-manager" | head -1)
+if [ -n "$HIDDIFY_PID" ]; then
+    kill -USR2 "$HIDDIFY_PID"
 fi
