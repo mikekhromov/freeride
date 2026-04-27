@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch HAProxy domain map and restore go.arengate.tech routing
+
+[Path]
+PathModified=/opt/hiddify-manager/haproxy/maps/http_domain
+
+[Install]
+WantedBy=multi-user.target

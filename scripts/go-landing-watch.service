@@ -1,0 +1,6 @@
+[Unit]
+Description=Restore go.arengate.tech HAProxy routing after Hiddify config regeneration
+
+[Service]
+Type=oneshot
+ExecStart=/root/vpn/scripts/restore-go-landing.sh
