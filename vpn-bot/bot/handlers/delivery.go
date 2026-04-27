@@ -109,19 +109,19 @@ func sendConnectionPack(d Deps, recipient tb.Recipient, links vpnLinks, proxyURL
 		},
 	}
 
-	if err := sendCardOrText(d, recipient, "VPN", "", &tb.SendOptions{ReplyMarkup: kb}); err != nil {
+	if err := sendStaticCardOrText(d, recipient, "vpn", "VPN", "", &tb.SendOptions{ReplyMarkup: kb}); err != nil {
 		return err
 	}
-	if err := sendCardOrText(d, recipient, "Telegram Proxy", "", &tb.SendOptions{ReplyMarkup: proxyKB}); err != nil {
+	if err := sendStaticCardOrText(d, recipient, "telegram", "Telegram Proxy", "", &tb.SendOptions{ReplyMarkup: proxyKB}); err != nil {
 		return err
 	}
-	if err := sendCardOrText(d, recipient, "VPN Client", "", &tb.SendOptions{ReplyMarkup: clientKB}); err != nil {
+	if err := sendStaticCardOrText(d, recipient, "client", "VPN Client", "", &tb.SendOptions{ReplyMarkup: clientKB}); err != nil {
 		return err
 	}
 	return nil
 }
 
-func sendCardOrText(d Deps, recipient tb.Recipient, title, body string, opts *tb.SendOptions) error {
+func sendGeneratedCardOrText(d Deps, recipient tb.Recipient, title, body string, opts *tb.SendOptions) error {
 	card, err := media.RenderTitleCard(title)
 	if err == nil {
 		photo := &tb.Photo{
@@ -136,6 +136,26 @@ func sendCardOrText(d Deps, recipient tb.Recipient, title, body string, opts *tb
 	fallbackText := strings.TrimSpace(body)
 	if fallbackText == "" {
 		fallbackText = title
+	}
+	_, err = d.Bot.Send(recipient, fallbackText, opts)
+	return err
+}
+
+func sendStaticCardOrText(d Deps, recipient tb.Recipient, cardName, fallbackTitle, body string, opts *tb.SendOptions) error {
+	card, err := media.LoadStaticCard(cardName)
+	if err == nil {
+		photo := &tb.Photo{
+			File:    tb.FromReader(bytes.NewReader(card)),
+			Caption: body,
+		}
+		_, err = d.Bot.Send(recipient, photo, opts)
+		if err == nil {
+			return nil
+		}
+	}
+	fallbackText := strings.TrimSpace(body)
+	if fallbackText == "" {
+		fallbackText = fallbackTitle
 	}
 	_, err = d.Bot.Send(recipient, fallbackText, opts)
 	return err

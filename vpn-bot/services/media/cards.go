@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 
 	xdraw "golang.org/x/image/draw"
 	"golang.org/x/image/font"
@@ -187,4 +188,39 @@ func maxFloat(a, b float64) float64 {
 		return a
 	}
 	return b
+}
+
+func LoadStaticCard(name string) ([]byte, error) {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return nil, fmt.Errorf("empty card name")
+	}
+	for _, p := range staticCardPathCandidates(trimmed) {
+		b, err := os.ReadFile(p)
+		if err == nil && len(b) > 0 {
+			return b, nil
+		}
+	}
+	return nil, fmt.Errorf("static card not found: %s", trimmed)
+}
+
+func staticCardPathCandidates(name string) []string {
+	fileNames := []string{name + ".png", name + ".jpg", name + ".jpeg"}
+	var out []string
+	if exePath, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exePath)
+		for _, fn := range fileNames {
+			out = append(out, filepath.Join(exeDir, "img", fn))
+		}
+	}
+	if wd, err := os.Getwd(); err == nil {
+		for _, fn := range fileNames {
+			out = append(out, filepath.Join(wd, "img", fn))
+		}
+	}
+	for _, fn := range fileNames {
+		out = append(out, filepath.Join("img", fn))
+		out = append(out, filepath.Join("vpn-bot", "img", fn))
+	}
+	return out
 }
