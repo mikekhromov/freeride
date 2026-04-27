@@ -39,7 +39,7 @@ func registerStatus(bot *tb.Bot, d Deps) {
 			return c.Send("Не удалось получить MTProxy-ссылку. Обратитесь к администратору.")
 		}
 		links := buildVPNLinks(profileURL)
-		mtproxyURL = normalizeMTProxyURL(mtproxyURL, d.Cfg.UsersProxyHost)
+		mtproxyURL = normalizeMTProxyURL(mtproxyURL, d.Cfg.UsersProxyHost, d.Cfg.HiddifyDomain)
 		return sendConnectionPack(d, c.Recipient(), links, mtproxyURL)
 	})
 }

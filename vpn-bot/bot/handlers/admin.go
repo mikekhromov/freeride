@@ -124,7 +124,7 @@ func registerAdmin(bot *tb.Bot, d Deps) {
 		}
 
 		links := buildVPNLinks(h)
-		mt = normalizeMTProxyURL(mt, d.Cfg.UsersProxyHost)
+		mt = normalizeMTProxyURL(mt, d.Cfg.UsersProxyHost, d.Cfg.HiddifyDomain)
 		_ = sendConnectionPack(d, &tb.User{ID: tgID}, links, mt)
 
 		mark := tgUser
@@ -164,7 +164,7 @@ func registerAdmin(bot *tb.Bot, d Deps) {
 		}
 
 		links := buildVPNLinks(profileURL)
-		mt = normalizeMTProxyURL(mt, d.Cfg.UsersProxyHost)
+		mt = normalizeMTProxyURL(mt, d.Cfg.UsersProxyHost, d.Cfg.HiddifyDomain)
 		_ = c.Send("🧪 Тест: так пользователь увидит выдачу доступа (ваши ссылки). Кнопки скачивания отдают конфиги для вашего аккаунта в боте.")
 		return sendConnectionPack(d, c.Recipient(), links, mt)
 	})

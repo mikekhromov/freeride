@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"html"
 	"io"
 	"net"
 	"net/http"
@@ -43,7 +42,7 @@ func withQuery(raw, k, v string) string {
 	return u.String()
 }
 
-func normalizeMTProxyURL(rawURL, usersHost string) string {
+func normalizeMTProxyURL(rawURL, usersHost, hiddifyDomain string) string {
 	if strings.TrimSpace(rawURL) == "" {
 		return rawURL
 	}
@@ -51,38 +50,33 @@ func normalizeMTProxyURL(rawURL, usersHost string) string {
 	if err != nil {
 		return rawURL
 	}
-	if usersHost == "" {
+	targetHost := preferredUsersHost(u.Hostname(), usersHost, hiddifyDomain)
+	if targetHost == "" {
 		return rawURL
 	}
 	port := u.Port()
-	u.Host = usersHost
+	u.Host = targetHost
 	if port != "" {
-		u.Host = net.JoinHostPort(usersHost, port)
+		u.Host = net.JoinHostPort(targetHost, port)
 	}
 	return u.String()
 }
 
 func sendConnectionPack(d Deps, recipient tb.Recipient, links vpnLinks, proxyURL string) error {
-	links = normalizeVPNLinks(links, d.Cfg.UsersProxyHost)
-	proxyURL = normalizeMTProxyURL(proxyURL, d.Cfg.UsersProxyHost)
+	links = normalizeVPNLinks(links, d.Cfg.UsersProxyHost, d.Cfg.HiddifyDomain)
+	proxyURL = normalizeMTProxyURL(proxyURL, d.Cfg.UsersProxyHost, d.Cfg.HiddifyDomain)
 
 	kb := &tb.ReplyMarkup{}
 	kb.InlineKeyboard = [][]tb.InlineButton{
 		{
-			{Text: "Скачать WireGuard", Data: "dl_wg"},
-			{Text: "Скачать Full Xray", Data: "dl_xr"},
+			{Text: "WireGuard (.conf)", Data: "dl_wg"},
+			{Text: "Full Xray (.txt)", Data: "dl_xr"},
 		},
 		{
-			{Text: "Скопировать для приложения", Data: "cp_all"},
+			{Text: "Все конфиги (ссылка)", Data: "cp_all"},
 		},
 	}
 
-	vpnBody := fmt.Sprintf("Варианты подключения VPN:\n\n• <a href=\"%s\">WireGuard</a>\n\n• <a href=\"%s\">Full Xray</a>\n\n• <a href=\"%s\">Все конфиги</a>",
-		html.EscapeString(links.WireGuard),
-		html.EscapeString(links.Xray),
-		html.EscapeString(links.All),
-	)
-	proxyBody := "Telegram Proxy:\n\nИспользуйте кнопки ниже."
 	proxyKB := &tb.ReplyMarkup{}
 	proxyKB.InlineKeyboard = [][]tb.InlineButton{
 		{
@@ -90,31 +84,24 @@ func sendConnectionPack(d Deps, recipient tb.Recipient, links vpnLinks, proxyURL
 			{Text: "Открыть", URL: proxyURL},
 		},
 	}
-
-	if err := sendCardOrText(d, recipient, "VPN", vpnBody, &tb.SendOptions{ReplyMarkup: kb, ParseMode: tb.ModeHTML}); err != nil {
-		return err
-	}
-	if err := sendCardOrText(d, recipient, "Telegram Proxy", proxyBody, &tb.SendOptions{ReplyMarkup: proxyKB, ParseMode: tb.ModeHTML}); err != nil {
-		return err
-	}
-	if _, err := d.Bot.Send(recipient, buildClientAppsMessage()); err != nil {
-		return err
+	clientKB := &tb.ReplyMarkup{}
+	clientKB.InlineKeyboard = [][]tb.InlineButton{
+		{
+			{Text: "Happ", URL: "https://happ.su"},
+			{Text: "Hiddify", URL: "https://github.com/hiddify/hiddify-next/releases"},
+		},
 	}
 
-	tag := strings.TrimSpace(d.Cfg.SupportTag)
-	if tag == "" {
-		tag = "@support"
+	if err := sendCardOrText(d, recipient, "VPN", "", &tb.SendOptions{ReplyMarkup: kb}); err != nil {
+		return err
 	}
-	_, err := d.Bot.Send(recipient, fmt.Sprintf("Если возникнут проблемы, напишите %s.", tag))
-	return err
-}
-
-func buildClientAppsMessage() string {
-	return strings.Join([]string{
-		"Рекомендуемые VPN-клиенты:",
-		"• Happ Plus: https://happ.su",
-		"• Hiddify Next: https://github.com/hiddify/hiddify-next/releases",
-	}, "\n")
+	if err := sendCardOrText(d, recipient, "Telegram Proxy", "", &tb.SendOptions{ReplyMarkup: proxyKB}); err != nil {
+		return err
+	}
+	if err := sendCardOrText(d, recipient, "VPN Client", "", &tb.SendOptions{ReplyMarkup: clientKB}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func sendCardOrText(d Deps, recipient tb.Recipient, title, body string, opts *tb.SendOptions) error {
@@ -129,32 +116,68 @@ func sendCardOrText(d Deps, recipient tb.Recipient, title, body string, opts *tb
 			return nil
 		}
 	}
-	_, err = d.Bot.Send(recipient, body, opts)
+	fallbackText := strings.TrimSpace(body)
+	if fallbackText == "" {
+		fallbackText = title
+	}
+	_, err = d.Bot.Send(recipient, fallbackText, opts)
 	return err
 }
 
-func normalizeVPNLinks(links vpnLinks, usersHost string) vpnLinks {
+func normalizeVPNLinks(links vpnLinks, usersHost, hiddifyDomain string) vpnLinks {
 	return vpnLinks{
-		WireGuard: normalizeURLHost(links.WireGuard, usersHost),
-		Xray:      normalizeURLHost(links.Xray, usersHost),
-		All:       normalizeURLHost(links.All, usersHost),
+		WireGuard: normalizeURLHost(links.WireGuard, usersHost, hiddifyDomain),
+		Xray:      normalizeURLHost(links.Xray, usersHost, hiddifyDomain),
+		All:       normalizeURLHost(links.All, usersHost, hiddifyDomain),
 	}
 }
 
-func normalizeURLHost(rawURL, usersHost string) string {
-	if strings.TrimSpace(rawURL) == "" || strings.TrimSpace(usersHost) == "" {
+func normalizeURLHost(rawURL, usersHost, hiddifyDomain string) string {
+	if strings.TrimSpace(rawURL) == "" {
 		return rawURL
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return rawURL
 	}
+	targetHost := preferredUsersHost(u.Hostname(), usersHost, hiddifyDomain)
+	if targetHost == "" {
+		return rawURL
+	}
 	port := u.Port()
-	u.Host = usersHost
+	u.Host = targetHost
 	if port != "" {
-		u.Host = net.JoinHostPort(usersHost, port)
+		u.Host = net.JoinHostPort(targetHost, port)
 	}
 	return u.String()
+}
+
+func preferredUsersHost(currentHost, usersHost, hiddifyDomain string) string {
+	if strings.TrimSpace(usersHost) != "" {
+		return usersHost
+	}
+	if currentHost == "" {
+		return ""
+	}
+	if ip := net.ParseIP(currentHost); ip == nil {
+		// URL already uses a domain name.
+		return currentHost
+	}
+	trimmedDomain := strings.TrimSpace(hiddifyDomain)
+	if trimmedDomain == "" {
+		return currentHost
+	}
+	parsed, err := url.Parse(trimmedDomain)
+	if err == nil && parsed.Hostname() != "" {
+		return parsed.Hostname()
+	}
+	trimmedDomain = strings.TrimPrefix(trimmedDomain, "https://")
+	trimmedDomain = strings.TrimPrefix(trimmedDomain, "http://")
+	trimmedDomain = strings.Trim(trimmedDomain, "/")
+	if trimmedDomain == "" {
+		return currentHost
+	}
+	return trimmedDomain
 }
 
 func sendConfigFile(ctx context.Context, c tb.Context, d Deps, protocol string) error {
@@ -177,7 +200,7 @@ func sendConfigFile(ctx context.Context, c tb.Context, d Deps, protocol string) 
 		return nil
 	}
 	links := buildVPNLinks(profileURL)
-	links = normalizeVPNLinks(links, d.Cfg.UsersProxyHost)
+	links = normalizeVPNLinks(links, d.Cfg.UsersProxyHost, d.Cfg.HiddifyDomain)
 	src := links.WireGuard
 	if protocol == "xray" {
 		src = links.Xray
@@ -218,7 +241,7 @@ func sendCopyLink(ctx context.Context, c tb.Context, d Deps, target string) erro
 			_ = c.Respond(&tb.CallbackResponse{Text: "Ошибка ссылки"})
 			return nil
 		}
-		mtproxyURL = normalizeMTProxyURL(mtproxyURL, d.Cfg.UsersProxyHost)
+		mtproxyURL = normalizeMTProxyURL(mtproxyURL, d.Cfg.UsersProxyHost, d.Cfg.HiddifyDomain)
 		_ = c.Respond(&tb.CallbackResponse{Text: "Ссылка отправлена"})
 		_, err = d.Bot.Send(c.Recipient(), "Скопируйте ссылку Telegram Proxy:\n"+mtproxyURL)
 		return err
@@ -228,7 +251,7 @@ func sendCopyLink(ctx context.Context, c tb.Context, d Deps, target string) erro
 		_ = c.Respond(&tb.CallbackResponse{Text: "Ошибка ссылки"})
 		return nil
 	}
-	links := normalizeVPNLinks(buildVPNLinks(profileURL), d.Cfg.UsersProxyHost)
+	links := normalizeVPNLinks(buildVPNLinks(profileURL), d.Cfg.UsersProxyHost, d.Cfg.HiddifyDomain)
 	_ = c.Respond(&tb.CallbackResponse{Text: "Ссылка отправлена"})
 	_, err = d.Bot.Send(c.Recipient(), "Скопируйте ссылку «Все конфиги»:\n"+links.All)
 	return err

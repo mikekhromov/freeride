@@ -63,7 +63,7 @@ func RegisterRevoke(bot *tb.Bot, d Deps) {
 			return c.Send("Не удалось перевыпустить конфиг: " + err.Error())
 		}
 		links := buildVPNLinks(hLink)
-		mtLink = normalizeMTProxyURL(mtLink, d.Cfg.UsersProxyHost)
+		mtLink = normalizeMTProxyURL(mtLink, d.Cfg.UsersProxyHost, d.Cfg.HiddifyDomain)
 		recipient := &tb.User{ID: tgID}
 		return sendConnectionPack(d, recipient, links, mtLink)
 	}

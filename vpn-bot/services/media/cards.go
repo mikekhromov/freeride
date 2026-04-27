@@ -26,9 +26,7 @@ const (
 func RenderTitleCard(title string) ([]byte, error) {
 	img := image.NewRGBA(image.Rect(0, 0, cardWidth, cardHeight))
 	if err := drawBackground(img); err != nil {
-		// Fallback to old solid background when external image is unavailable.
-		bg := image.NewUniform(color.RGBA{R: 18, G: 24, B: 38, A: 255})
-		draw.Draw(img, img.Bounds(), bg, image.Point{}, draw.Src)
+		drawFallbackBackground(img)
 	}
 
 	// Dark overlay for text readability.
@@ -41,6 +39,25 @@ func RenderTitleCard(title string) ([]byte, error) {
 		return nil, err
 	}
 	return out.Bytes(), nil
+}
+
+func drawFallbackBackground(dst *image.RGBA) {
+	top := color.RGBA{R: 9, G: 18, B: 34, A: 255}
+	bottom := color.RGBA{R: 22, G: 38, B: 68, A: 255}
+	height := dst.Bounds().Dy()
+	width := dst.Bounds().Dx()
+	if height <= 1 {
+		draw.Draw(dst, dst.Bounds(), image.NewUniform(top), image.Point{}, draw.Src)
+		return
+	}
+	for y := 0; y < height; y++ {
+		t := float64(y) / float64(height-1)
+		r := uint8(float64(top.R)*(1-t) + float64(bottom.R)*t)
+		g := uint8(float64(top.G)*(1-t) + float64(bottom.G)*t)
+		b := uint8(float64(top.B)*(1-t) + float64(bottom.B)*t)
+		line := image.NewUniform(color.RGBA{R: r, G: g, B: b, A: 255})
+		draw.Draw(dst, image.Rect(0, y, width, y+1), line, image.Point{}, draw.Src)
+	}
 }
 
 func drawBackground(dst *image.RGBA) error {
@@ -94,6 +111,8 @@ func backgroundPathCandidates() []string {
 		out = append(out, p)
 	}
 	out = append(out,
+		"bg.jpg",
+		filepath.Join(".", "bg.jpg"),
 		"../arengate-landing/public/bg.jpg",
 		"/Users/mikekhromov/Documents/code/freeride/arengate-landing/public/bg.jpg",
 		filepath.Join("assets", "bg.jpg"),

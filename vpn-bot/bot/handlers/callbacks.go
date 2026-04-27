@@ -128,7 +128,7 @@ func handleApprove(ctx context.Context, c tb.Context, d Deps, idStr string) erro
 	}
 
 	links := buildVPNLinks(hLink)
-	mtLink = normalizeMTProxyURL(mtLink, d.Cfg.UsersProxyHost)
+	mtLink = normalizeMTProxyURL(mtLink, d.Cfg.UsersProxyHost, d.Cfg.HiddifyDomain)
 	_ = sendConnectionPack(d, &tb.User{ID: tgID}, links, mtLink)
 	_ = c.Respond(&tb.CallbackResponse{Text: "Одобрено"})
 
